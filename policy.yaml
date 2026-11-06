@@ -1,0 +1,70 @@
+# ============================================================
+# RAG 系统声明式策略文件
+# 借鉴 Claude Code 的 Policy-as-Code 思路，适配 RAG 场景
+# 三段分离：权限 / 安全 / 路由决策
+# ============================================================
+
+# ---------- 第一段：权限（谁能访问什么）----------
+permissions:
+  doc_access:
+    public: allow        # 公开文档：允许检索
+    internal: deny       # 内部文档：禁止检索（单用户演示版直接 deny）
+    confidential: deny   # 机密文档：禁止检索
+
+# ---------- 第二段：安全（输入输出安全）----------
+security:
+  # 输入侧：prompt injection 检测
+  prompt_injection:
+    action: deny
+    patterns:
+      - "忽略之前"
+      - "ignore previous"
+      - "忽略以上"
+      - "你现在是"
+      - "输出系统提示"
+      - "system prompt"
+      - "你是一个"
+      - "假装你是"
+      - "打开控制台"
+    deny_message: "检测到潜在的提示词注入攻击，请求已被拒绝。"
+
+  # 输出侧：PII 脱敏
+  pii_redaction:
+    action: auto_redact
+    types:
+      phone:
+        pattern: "(?<!\\d)1[3-9]\\d{9}(?!\\d)"
+        replacement: "***"
+      bank_card:
+        pattern: "\\d{16,19}"
+        replacement: "****"
+      id_card:
+        pattern: "\\d{17}[\\dXx]"
+        replacement: "***"
+      email:
+        pattern: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+        replacement: "***@***"
+
+# ---------- 第三段：路由决策（系统的"智能"）----------
+routing:
+  # 查询改写：把用户口语化查询规范化为知识库标准问句
+  query_rewrite:
+    enabled: true
+    description: "用 LLM 将口语化查询改写为'什么是 X'格式"
+
+  # 高精度直答：距离 < 阈值，直接返回知识库答案
+  direct_answer:
+    threshold: 0.5
+    description: "检索距离 < 0.5，高精度命中，直接返回答案"
+
+  # LLM 生成：距离在阈值区间，基于检索结果生成
+  llm_generate:
+    min_threshold: 0.5
+    max_threshold: 1.0
+    description: "检索距离 0.5~1.0，中精度命中，Rerank 后调用 LLM 生成"
+
+  # 兜底：距离 > 阈值，完全超出知识库范围
+  fallback:
+    threshold: 1.0
+    description: "检索距离 > 1.0，完全超出知识库范围，兜底回答"
+    fallback_message: "抱歉，该问题超出了当前金融知识库的范围。您可以尝试以下类型的问题：金融产品知识、投资理财概念、金融市场分析、风险管理等。"

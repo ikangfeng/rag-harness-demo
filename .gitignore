@@ -1,0 +1,20 @@
+# 白名单模式：只提交演示必需的核心文件，其余忽略
+/*
+!.gitignore
+!requirements.txt
+!config.py
+!policy.yaml
+!gradio_server.py
+!chat_help_main.py
+!harness.py
+!reranker.py
+!build_knowledge_vectorstore.py
+!run_ragas_eval.py
+!start_server.sh
+!vectorstore/
+
+# 保险：任何情况下都不提交这些
+__pycache__/
+*.pyc
+.DS_Store
+.env
